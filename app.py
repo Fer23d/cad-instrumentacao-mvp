@@ -9,6 +9,7 @@ import argparse
 import html
 import json
 import mimetypes
+import os
 import re
 import secrets
 import shutil
@@ -737,6 +738,6 @@ def run(port: int = 8000) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="InstrumentaCAD")
-    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8000")))
     args = parser.parse_args()
     run(args.port)
