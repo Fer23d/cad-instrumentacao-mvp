@@ -227,6 +227,7 @@ class CadInstrumentationHandler(BaseHTTPRequestHandler):
 
 def _dashboard_page() -> str:
     stats = dashboard_stats()
+    symbol_count = len(load_symbols())
     history_rows = "\n".join(_history_row(item) for item in load_history()[:10])
     if not history_rows:
         history_rows = '<tr><td colspan="7" class="empty">Nenhuma analise finalizada ainda.</td></tr>'
@@ -234,12 +235,25 @@ def _dashboard_page() -> str:
     return _layout(
         f"""
         <section class="hero-app">
-          <div>
-            <p class="eyebrow">InstrumentaCAD</p>
-            <h1>Relatorios automaticos de instrumentacao a partir de DWG e DXF.</h1>
-            <p class="lead">Analise plantas, revise os instrumentos encontrados e gere PDF/Excel com padrao tecnico.</p>
+          <div class="hero-copy">
+            <p class="eyebrow">Software industrial para engenharia</p>
+            <h1>InstrumentaCAD</h1>
+            <p class="lead">Analise plantas CAD de instrumentacao, localize tags e simbolos, revise os pontos encontrados e gere relatorios tecnicos com rastreabilidade.</p>
+            <div class="hero-actions">
+              <a class="button" href="#cad-upload">Enviar Planta CAD</a>
+              <a class="button secondary" href="/symbols">Biblioteca de simbolos</a>
+            </div>
+            <div class="process-strip">
+              <span>01 Upload DXF/DWG</span>
+              <span>02 Revisao tecnica</span>
+              <span>03 PDF, Excel e planta marcada</span>
+            </div>
           </div>
-          <form class="upload-panel" action="/analyze" method="post" enctype="multipart/form-data">
+          <form id="cad-upload" class="upload-panel" action="/analyze" method="post" enctype="multipart/form-data">
+            <div>
+              <p class="eyebrow">Nova analise</p>
+              <h2>Enviar Planta CAD</h2>
+            </div>
             <div class="form-grid">
               <label>Nome do projeto<input name="project_name" placeholder="Ex.: Hospital - Pavimento 02" required></label>
               <label>Cliente<input name="client_name" placeholder="Ex.: ACME Engenharia"></label>
@@ -257,27 +271,41 @@ def _dashboard_page() -> str:
             </div>
             <label>Arquivo CAD<input type="file" name="cad_file" accept=".dxf,.dwg" required></label>
             <label>Logo da empresa para o relatorio<input type="file" name="company_logo" accept=".png,.jpg,.jpeg"></label>
-            <button type="submit">Analisar planta</button>
+            <button type="submit">Enviar Planta CAD</button>
             <p class="hint">DXF funciona direto. DWG usa ODA File Converter instalado no servidor.</p>
           </form>
         </section>
 
         <section class="stats">
-          <div><strong>{stats["projects"]}</strong><span>Plantas analisadas</span></div>
-          <div><strong>{stats["instruments"]}</strong><span>Instrumentos encontrados</span></div>
-          <div><strong>{stats["pending"]}</strong><span>Pendentes de revisao</span></div>
-          <div><strong>{stats["reports"]}</strong><span>Relatorios gerados</span></div>
+          <div><span>Plantas analisadas</span><strong>{stats["projects"]}</strong><small>Projetos finalizados</small></div>
+          <div><span>Instrumentos encontrados</span><strong>{stats["instruments"]}</strong><small>Tags e simbolos detectados</small></div>
+          <div><span>Pendentes de revisao</span><strong>{stats["pending"]}</strong><small>Itens com baixa confianca</small></div>
+          <div><span>Regras ativas</span><strong>{symbol_count}</strong><small>Biblioteca de simbolos</small></div>
         </section>
 
-        <section class="section-head">
-          <div><h2>Historico recente</h2><p>Ultimos relatorios gerados pelo sistema.</p></div>
-          <a class="button secondary" href="/symbols">Configurar simbolos</a>
-        </section>
-        <section class="table-wrap">
-          <table>
-            <thead><tr><th>Data</th><th>Projeto</th><th>Cliente</th><th>Tipo</th><th>Instrumentos</th><th>Pendencias</th><th>Downloads</th></tr></thead>
-            <tbody>{history_rows}</tbody>
-          </table>
+        <section class="workspace-grid">
+          <div>
+            <section class="section-head">
+              <div><h2>Historico recente</h2><p>Ultimos relatorios gerados pelo sistema.</p></div>
+            </section>
+            <section class="table-wrap">
+              <table>
+                <thead><tr><th>Data</th><th>Projeto</th><th>Cliente</th><th>Tipo</th><th>Instrumentos</th><th>Pendencias</th><th>Downloads</th></tr></thead>
+                <tbody>{history_rows}</tbody>
+              </table>
+            </section>
+          </div>
+          <aside class="symbols-card">
+            <p class="eyebrow">Biblioteca de simbolos</p>
+            <h2>Regras por bloco e layer</h2>
+            <p>Configure padroes usados nos desenhos para aumentar a precisao da classificacao automatica.</p>
+            <dl>
+              <div><dt>Blocos</dt><dd>CAMERA, SENSOR, PT, TT, VALV</dd></div>
+              <div><dt>Layers</dt><dd>CFTV, AUTOMACAO, INSTRUMENTACAO</dd></div>
+              <div><dt>Saida</dt><dd>PDF, Excel, DXF marcado e DWG opcional</dd></div>
+            </dl>
+            <a class="button secondary" href="/symbols">Abrir biblioteca</a>
+          </aside>
         </section>
         """,
         active="dashboard",
@@ -493,32 +521,42 @@ def _layout(content: str, active: str = "dashboard") -> str:
   <title>InstrumentaCAD</title>
   <style>
     :root {{
-      --bg: #f4f7fb;
+      --bg: #eef3f7;
       --panel: #ffffff;
-      --ink: #15202b;
-      --muted: #65758b;
-      --line: #d8e1ec;
-      --brand: #0b6bcb;
-      --brand-dark: #074f99;
-      --soft: #e8f2ff;
+      --ink: #111827;
+      --muted: #5f6c7b;
+      --line: #d4dde8;
+      --brand: #0f766e;
+      --brand-dark: #115e59;
+      --accent: #f59e0b;
+      --soft: #dff5f1;
+      --steel: #1f2937;
       --warn: #a35a00;
     }}
     * {{ box-sizing: border-box; }}
+    html {{ scroll-behavior: smooth; }}
     body {{ margin: 0; font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: var(--ink); }}
-    header {{ background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10; }}
-    .nav {{ width: min(1220px, calc(100% - 32px)); margin: 0 auto; min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }}
-    .brand {{ font-size: 20px; font-weight: 800; color: var(--ink); text-decoration: none; }}
+    body::before {{ content: ""; position: fixed; inset: 0; z-index: -1; background: linear-gradient(135deg, rgba(31, 41, 55, 0.08), transparent 42%), linear-gradient(0deg, rgba(15, 118, 110, 0.07), transparent 34%); }}
+    header {{ background: rgba(255, 255, 255, 0.96); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10; backdrop-filter: blur(10px); }}
+    .nav {{ width: min(1220px, calc(100% - 32px)); margin: 0 auto; min-height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }}
+    .brand {{ display: inline-flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 900; color: var(--ink); text-decoration: none; letter-spacing: 0; }}
+    .brand::before {{ content: ""; width: 28px; height: 28px; border-radius: 7px; background: linear-gradient(135deg, var(--brand), var(--steel)); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.35); }}
     nav {{ display: flex; gap: 8px; flex-wrap: wrap; }}
     nav a {{ padding: 10px 12px; border-radius: 7px; color: var(--muted); text-decoration: none; font-weight: 700; }}
     nav a.active, nav a:hover {{ background: var(--soft); color: var(--brand); }}
     main {{ width: min(1220px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 44px; }}
     h1, h2, p {{ margin-top: 0; }}
-    h1 {{ max-width: 780px; margin-bottom: 14px; font-size: 46px; line-height: 1.05; }}
+    h1 {{ max-width: 780px; margin-bottom: 14px; font-size: 54px; line-height: 1.02; letter-spacing: 0; }}
     h2 {{ margin-bottom: 6px; font-size: 24px; }}
     .lead {{ max-width: 690px; color: var(--muted); font-size: 17px; line-height: 1.55; }}
-    .eyebrow {{ margin-bottom: 10px; color: var(--brand); font-size: 13px; font-weight: 800; text-transform: uppercase; }}
-    .hero-app {{ display: grid; grid-template-columns: 1fr 470px; gap: 28px; align-items: center; min-height: 560px; }}
-    .upload-panel, .panel, .success, .error {{ display: grid; gap: 14px; padding: 22px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 16px 34px rgba(21, 32, 43, 0.07); }}
+    .eyebrow {{ margin-bottom: 10px; color: var(--brand); font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; }}
+    .hero-app {{ display: grid; grid-template-columns: minmax(0, 1fr) 470px; gap: 28px; align-items: center; min-height: 560px; padding: 28px 0; }}
+    .hero-copy {{ padding: 42px; min-height: 430px; color: white; background: linear-gradient(135deg, #1f2937, #0f766e); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; box-shadow: 0 20px 50px rgba(17, 24, 39, 0.18); }}
+    .hero-copy .eyebrow, .hero-copy .lead {{ color: rgba(255,255,255,0.82); }}
+    .hero-actions {{ display: flex; gap: 10px; flex-wrap: wrap; margin: 24px 0; }}
+    .process-strip {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 28px; }}
+    .process-strip span {{ padding: 10px; border: 1px solid rgba(255,255,255,0.22); border-radius: 7px; background: rgba(255,255,255,0.08); font-size: 12px; font-weight: 800; }}
+    .upload-panel, .panel, .success, .error, .symbols-card {{ display: grid; gap: 14px; padding: 22px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 16px 34px rgba(21, 32, 43, 0.08); }}
     .form-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }}
     .form-grid.three {{ grid-template-columns: repeat(3, 1fr); }}
     label {{ display: grid; gap: 6px; font-size: 13px; font-weight: 800; color: #334155; }}
@@ -528,13 +566,22 @@ def _layout(content: str, active: str = "dashboard") -> str:
     button, .button {{ display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 0 16px; border: 0; border-radius: 7px; background: var(--brand); color: white; font-weight: 800; text-decoration: none; cursor: pointer; }}
     button:hover, .button:hover {{ background: var(--brand-dark); }}
     .button.secondary {{ background: var(--soft); color: var(--brand); }}
+    .hero-copy .button.secondary {{ background: rgba(255,255,255,0.12); color: white; border: 1px solid rgba(255,255,255,0.3); }}
     .hint {{ margin: 0; color: var(--muted); font-size: 13px; }}
     .stats {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }}
-    .stats div {{ padding: 20px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }}
-    .stats strong {{ display: block; margin-bottom: 6px; font-size: 34px; color: var(--brand); }}
-    .stats span {{ color: var(--muted); font-weight: 700; }}
+    .stats div {{ padding: 20px; background: var(--panel); border: 1px solid var(--line); border-left: 5px solid var(--brand); border-radius: 8px; }}
+    .stats strong {{ display: block; margin: 7px 0; font-size: 36px; color: var(--steel); }}
+    .stats span {{ color: var(--muted); font-weight: 800; font-size: 12px; text-transform: uppercase; }}
+    .stats small {{ color: var(--muted); }}
     .section-head, .result-header {{ display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 16px; }}
     .page-title {{ margin-bottom: 22px; }}
+    .workspace-grid {{ display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 18px; align-items: start; }}
+    .symbols-card {{ align-content: start; }}
+    .symbols-card p {{ color: var(--muted); line-height: 1.5; }}
+    .symbols-card dl {{ display: grid; gap: 10px; margin: 0; }}
+    .symbols-card dl div {{ padding: 12px; border-radius: 7px; background: #f7fafc; border: 1px solid var(--line); }}
+    .symbols-card dt {{ color: var(--steel); font-weight: 900; margin-bottom: 4px; }}
+    .symbols-card dd {{ margin: 0; color: var(--muted); font-size: 13px; }}
     .table-wrap {{ overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }}
     table {{ width: 100%; min-width: 980px; border-collapse: collapse; }}
     th, td {{ padding: 11px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 14px; }}
@@ -554,7 +601,8 @@ def _layout(content: str, active: str = "dashboard") -> str:
     .error {{ margin-top: 30px; }}
     @media (max-width: 900px) {{
       h1 {{ font-size: 34px; }}
-      .hero-app, .form-grid, .form-grid.three, .stats {{ grid-template-columns: 1fr; }}
+      .hero-app, .form-grid, .form-grid.three, .stats, .workspace-grid, .process-strip {{ grid-template-columns: 1fr; }}
+      .hero-copy {{ padding: 24px; min-height: 0; }}
       .section-head, .result-header {{ align-items: stretch; flex-direction: column; }}
       .summary {{ min-width: 0; }}
     }}
